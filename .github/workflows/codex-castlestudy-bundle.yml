@@ -1,0 +1,58 @@
+name: Codex Castlestudy source bundle
+
+on:
+  push:
+    branches:
+      - codex/castlestudy-source-bundle-20260821
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout workflow repository
+        uses: actions/checkout@v4
+
+      - name: Clone Castlestudy source repositories
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf source-bundle
+          mkdir -p source-bundle
+
+          git clone --depth=1 https://github.com/hcwdc/Castlestudy.git source-bundle/backend
+          git clone --depth=1 https://github.com/hcwdc/castlestudy-ui.git source-bundle/admin-web
+
+          if ! git clone --depth=1 https://gitee.com/hcwdc/castlestudy-uniapp.git source-bundle/mini-program; then
+            echo "Primary Gitee clone failed; trying public fork"
+            git clone --depth=1 https://gitee.com/artexp169/castlestudy-uniapp.git source-bundle/mini-program
+          fi
+
+          find source-bundle -type d -name .git -prune -exec rm -rf {} +
+          find source-bundle -type f -name .DS_Store -delete
+
+          cat > source-bundle/SOURCE_MANIFEST.md <<'EOF'
+          # Castlestudy source manifest
+
+          - `backend/`: https://github.com/hcwdc/Castlestudy
+          - `admin-web/`: https://github.com/hcwdc/castlestudy-ui
+          - `mini-program/`: https://gitee.com/hcwdc/castlestudy-uniapp
+          - Retrieved by GitHub Actions for the user's modernization task.
+          - Original MIT license files are preserved inside each source tree.
+          EOF
+
+          zip -q -r castlestudy-original-sources.zip source-bundle
+          sha256sum castlestudy-original-sources.zip > castlestudy-original-sources.zip.sha256
+
+      - name: Upload source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: castlestudy-original-sources
+          path: |
+            castlestudy-original-sources.zip
+            castlestudy-original-sources.zip.sha256
+          if-no-files-found: error
+          retention-days: 1
